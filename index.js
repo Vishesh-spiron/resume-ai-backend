@@ -61,3 +61,15 @@ app.listen(PORT, () => {
   console.log(`✅ Resume AI backend running on port ${PORT}`);
   console.log(`   Mode: ${process.env.NODE_ENV || 'development'}`);
 });
+
+// ── Keep-alive ping (Render free tier spins down after 15min inactivity) ─────
+// This pings our own health endpoint every 14 minutes to stay awake.
+// Only runs in production — no need locally.
+if (process.env.NODE_ENV === 'production') {
+  const SELF_URL = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
+  setInterval(() => {
+    fetch(`${SELF_URL}/`)
+      .then(() => console.log('🏓 Keep-alive ping sent'))
+      .catch((err) => console.warn('Keep-alive failed:', err.message));
+  }, 14 * 60 * 1000); // every 14 minutes
+}
