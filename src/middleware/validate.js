@@ -4,7 +4,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Valid plan keys — must match Flutter PaymentPlan enum keys
-const VALID_PLANS = ['fixResume', 'jdOptimize', 'bundle', 'humanReview'];
+const VALID_PLANS = ['fixResume', 'jdOptimize', 'bundle', 'humanReview', 'resumeGenerator'];
 
 // Amount map in paise (₹1 = 100 paise) — single source of truth on server
 // This means clients CANNOT manipulate the price — server decides the amount
@@ -12,7 +12,8 @@ const PLAN_AMOUNTS = {
   fixResume:   3900,   // ₹39
   jdOptimize:  4900,   // ₹49
   bundle:      8900,   // ₹89
-  humanReview: 12900,  // ₹129
+  humanReview:      12900,  // ₹129
+  resumeGenerator:   4900,   // ₹49
 };
 
 /**
