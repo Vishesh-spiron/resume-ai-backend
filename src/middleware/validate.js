@@ -11,7 +11,7 @@ const VALID_PLANS = ['fixResume', 'jdOptimize', 'bundle', 'humanReview', 'resume
 const PLAN_AMOUNTS = {
   fixResume:   3900,   // ₹39
   jdOptimize:  4900,   // ₹49
-  bundle:      8900,   // ₹89
+  bundle:      7900,   // ₹89
   humanReview:      12900,  // ₹129
   resumeGenerator:   4900,   // ₹49
 };
