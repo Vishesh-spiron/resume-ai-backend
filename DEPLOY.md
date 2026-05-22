@@ -1,225 +1,207 @@
-# 🚀 Backend Setup + Render Deployment Guide
+# Resume AI Backend — Setup & Deployment Guide
 
 ---
 
-## 📁 Where to Put Each File
+## ⚠️ Critical: Credentials Security
 
-### Backend (completely separate from Flutter)
-Create a NEW folder OUTSIDE your Flutter project:
+**Never commit `.env` to Git.** It is already in `.gitignore`, but double-check:
+
+```bash
+git status   # .env must NOT appear here
+```
+
+If you accidentally committed it:
+```bash
+git rm --cached .env
+git commit -m "Remove .env from tracking"
+# Then rotate your Razorpay keys immediately at dashboard.razorpay.com
+```
+
+---
+
+## 📁 Project Structure
 
 ```
-resume_ai_backend/          ← NEW folder, NOT inside Flutter project
-├── index.js
+resume_ai_backend/
+├── index.js                          ← Entry point
 ├── package.json
-├── .env.example
+├── .env                              ← Your secrets (never commit)
+├── .env.example                      → Safe template (commit this)
 ├── .gitignore
+├── DEPLOY.md
 └── src/
     ├── config/
-    │   └── razorpay.js
+    │   └── razorpay.js               ← Razorpay SDK init
     ├── controllers/
-    │   └── paymentController.js
+    │   └── paymentController.js      ← Order creation + HMAC verify
     ├── middleware/
-    │   └── validate.js
+    │   ├── validate.js               ← Request validation + pricing
+    │   ├── rateLimit.js              ← Rate limiting (new)
+    │   └── logger.js                 ← Request ID + timing logs (new)
     └── routes/
-        └── paymentRoutes.js
-```
-
-### Flutter changes (inside your existing Flutter project)
-```
-your_flutter_project/
-├── .env                          ← ADD: BACKEND_URL=https://your-app.onrender.com
-├── web/
-│   └── index.html                ← REPLACE (has Razorpay Checkout.js script)
-└── lib/
-    └── core/
-        └── services/
-            ├── payment_service.dart       ← REPLACE (full web+mobile payment)
-            ├── razorpay_web_stub.dart     ← NEW FILE
-            └── js_stub.dart               ← NEW FILE
+        └── paymentRoutes.js          ← Route → middleware → controller
 ```
 
 ---
 
-## ⚙️ Step 1 — Run Backend Locally
+## ⚙️ Step 1 — Run Locally
 
 ```bash
-# 1. Go into backend folder
 cd resume_ai_backend
 
-# 2. Install dependencies
+# Install all dependencies (including new express-rate-limit)
 npm install
 
-# 3. Create your .env from the example
+# Copy template and fill in your keys
 cp .env.example .env
+# Edit .env → add your real RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET
 
-# 4. Open .env and fill in your Razorpay keys:
-#    RAZORPAY_KEY_ID=rzp_test_xxxxxxxxxxxxxxxx
-#    RAZORPAY_KEY_SECRET=xxxxxxxxxxxxxxxxxxxxxxxx
-#    ALLOWED_ORIGINS=*
-#    PORT=3000
-
-# 5. Start server
-npm start
+# Start in dev mode (auto-restarts on file changes)
+npm run dev
 
 # You should see:
-# ✅ Resume AI backend running on port 3000
+# ✅ Resume AI backend running
+#    Port:    3000
+#    Mode:    development
+#    Origins: *
+#    Razorpay key: rzp_test_xxx...
 ```
 
-**Test it with curl:**
+**Test with curl:**
 ```bash
-# Test create-order
+# Health check
+curl http://localhost:3000/
+# → { "status": "ok", "uptime_sec": 12, ... }
+
+# Create order
 curl -X POST http://localhost:3000/api/payment/create-order \
   -H "Content-Type: application/json" \
   -d '{"plan": "fixResume"}'
+# → { "success": true, "order_id": "order_xxx", "amount": 3900, ... }
 
-# Expected response:
-# {
-#   "success": true,
-#   "order_id": "order_xxxxxxxxxxxx",
-#   "amount": 3900,
-#   "currency": "INR",
-#   "plan": "fixResume",
-#   "plan_name": "Fix My Resume",
-#   "key_id": "rzp_test_xxx"
-# }
+# Test rate limiting (run 11+ times — 11th should return 429)
+for i in {1..12}; do
+  curl -s -o /dev/null -w "%{http_code}\n" \
+    -X POST http://localhost:3000/api/payment/create-order \
+    -H "Content-Type: application/json" \
+    -d '{"plan": "fixResume"}'
+done
 ```
 
 ---
 
-## ☁️ Step 2 — Deploy on Render (Free)
+## ☁️ Step 2 — Deploy
 
-### 2a. Push backend to GitHub
+### Option A: Render (free tier, recommended)
 
+1. Push backend to its own GitHub repo:
 ```bash
 cd resume_ai_backend
-
-# Initialize git (first time)
 git init
 git add .
 git commit -m "Initial backend"
-
-# Create a new repo on github.com then:
-git remote add origin https://github.com/YOUR_USERNAME/resume-ai-backend.git
+# Create repo at github.com, then:
+git remote add origin https://github.com/YOUR/resume-ai-backend.git
 git push -u origin main
 ```
 
-> ⚠️ Make sure `.gitignore` includes `.env` — NEVER push your secret key
+2. Go to [render.com](https://render.com) → New → Web Service → connect repo
 
-### 2b. Create service on Render
+| Setting | Value |
+|---------|-------|
+| Runtime | Node |
+| Region | Singapore (closest to India) |
+| Build command | `npm install` |
+| Start command | `npm start` |
+| Plan | Free |
 
-1. Go to **[render.com](https://render.com)** → Sign up free
-2. Click **"New +"** → **"Web Service"**
-3. Connect your GitHub account → select `resume-ai-backend` repo
-4. Fill in these settings:
-
-| Field | Value |
-|-------|-------|
-| **Name** | `resume-ai-backend` (or anything) |
-| **Region** | Singapore (closest to India) |
-| **Branch** | `main` |
-| **Runtime** | `Node` |
-| **Build Command** | `npm install` |
-| **Start Command** | `npm start` |
-| **Plan** | Free |
-
-5. Click **"Add Environment Variable"** and add:
+3. Add Environment Variables in Render dashboard:
 
 | Key | Value |
 |-----|-------|
 | `RAZORPAY_KEY_ID` | `rzp_test_xxxxxxxx` |
 | `RAZORPAY_KEY_SECRET` | `xxxxxxxxxxxxxxxx` |
-| `ALLOWED_ORIGINS` | `*` (dev) or `https://your-flutter-web-url.com` (prod) |
+| `ALLOWED_ORIGINS` | `*` (dev) or your Flutter web URL (prod) |
 | `NODE_ENV` | `production` |
 
-6. Click **"Create Web Service"**
-7. Wait ~2 minutes for deployment
-8. Your backend URL will be: `https://resume-ai-backend-xxxx.onrender.com`
+4. After deploy, copy your URL: `https://resume-ai-backend-xxxx.onrender.com`
 
-### 2c. Test deployed backend
+### Option B: Railway (better free tier limits)
 
 ```bash
-curl https://resume-ai-backend-xxxx.onrender.com/
-# { "status": "ok", "service": "Resume AI Payment Backend" }
-
-curl -X POST https://resume-ai-backend-xxxx.onrender.com/api/payment/create-order \
-  -H "Content-Type: application/json" \
-  -d '{"plan": "bundle"}'
+npm install -g @railway/cli
+railway login
+railway init
+railway up
+# Add env vars: railway variables set RAZORPAY_KEY_ID=xxx RAZORPAY_KEY_SECRET=xxx NODE_ENV=production
 ```
 
 ---
 
-## 📱 Step 3 — Update Flutter .env
+## 📱 Step 3 — Update Flutter
 
-Open your Flutter `.env` file and add/update:
-
+Open your Flutter `.env`:
 ```env
-# Existing keys (keep these)
-GROQ_API_KEY=gsk_xxxxxxxx
 RAZORPAY_KEY_ID=rzp_test_xxxxxxxx
-
-# NEW — your Render backend URL
-BACKEND_URL=https://resume-ai-backend-xxxx.onrender.com
+BACKEND_URL=https://your-backend.onrender.com   ← add/update this
 ```
 
-Then rebuild Flutter:
+Rebuild:
 ```bash
-flutter clean
-flutter pub get
-flutter run -d chrome   # test web
-flutter run             # test mobile
+flutter clean && flutter pub get
+flutter run -d chrome   # web
+flutter run             # mobile
 ```
 
 ---
 
-## 🔄 How the Payment Flow Works
+## 🔄 Payment Flow
 
-### Web Flow:
+### Web (full verification):
 ```
-User taps "Pay ₹39"
-    ↓
-Flutter → POST /api/payment/create-order {"plan": "fixResume"}
-    ↓
-Backend creates Razorpay order → returns order_id
-    ↓
-Flutter opens Razorpay Checkout.js modal (browser popup)
-    ↓
-User pays via UPI / Card / NetBanking
-    ↓
-Checkout.js calls Flutter handler with {payment_id, signature}
-    ↓
-Flutter → POST /api/payment/verify-payment {order_id, payment_id, signature}
-    ↓
-Backend verifies HMAC signature → returns {success: true}
-    ↓
-Flutter unlocks the feature ✅
+Flutter → POST /create-order → backend creates Razorpay order
+        → Razorpay Checkout.js modal
+        → user pays
+        → Flutter → POST /verify-payment → backend verifies HMAC → { success: true }
+        → Flutter unlocks feature ✅
 ```
 
-### Mobile Flow:
+### Mobile (native plugin):
 ```
-User taps "Pay ₹39"
-    ↓
-Flutter → POST /api/payment/create-order {"plan": "fixResume"}
-    ↓
-Backend creates Razorpay order → returns order_id
-    ↓
-Flutter opens native Razorpay plugin with order_id
-    ↓
-User pays via native checkout
-    ↓
-Plugin returns success → Flutter unlocks feature ✅
+Flutter → POST /create-order → backend creates Razorpay order
+        → native Razorpay plugin modal
+        → user pays
+        → plugin fires PaymentSuccessResponse → Flutter unlocks feature ✅
 ```
+
+> ⚠️ **Mobile verify gap**: The mobile flow currently trusts the native plugin's
+> success callback without calling `/verify-payment`. For a low-price app (₹39-₹129)
+> the risk is low, but for higher-value transactions you should call
+> `/verify-payment` after the mobile plugin succeeds, the same way the web flow does.
 
 ---
 
-## 🔒 Security Notes
+## 🔒 Security Summary
 
-| What | Why it's secure |
-|------|----------------|
-| Secret key only in backend `.env` | Never sent to Flutter or browser |
-| Server sets the price, not client | Flutter sends plan name, backend looks up price |
-| HMAC verification on backend | Prevents fake payment confirmations |
-| `timingSafeEqual` for signature | Prevents timing attacks |
-| `.env` in `.gitignore` | Keys never pushed to GitHub |
+| Layer | What it does |
+|-------|-------------|
+| `.gitignore` | Prevents `.env` from being committed |
+| `validate.js` | Input sanitization + server-side pricing |
+| `rateLimit.js` | 60 req/min general, 10/15min payment, 5/15min verify |
+| `paymentController.js` | `timingSafeEqual` prevents timing attacks on HMAC |
+| CORS | Restricts which origins can call the API |
+| Body size limit | `10kb` max prevents large payload attacks |
+
+---
+
+## 🚀 Going Live (Real Money)
+
+1. Complete KYC on [Razorpay Dashboard](https://dashboard.razorpay.com)
+2. Get Live keys (`rzp_live_` prefix)
+3. Update Render env vars: `RAZORPAY_KEY_ID` + `RAZORPAY_KEY_SECRET`
+4. Update Flutter `.env`: `RAZORPAY_KEY_ID=rzp_live_xxx`
+5. Set `ALLOWED_ORIGINS` to your real Flutter web domain
+6. Redeploy — **no code changes needed**
 
 ---
 
@@ -227,19 +209,9 @@ Plugin returns success → Flutter unlocks feature ✅
 
 | Error | Fix |
 |-------|-----|
-| `CORS blocked` | Add your Flutter web URL to `ALLOWED_ORIGINS` in Render env vars |
-| `RAZORPAY_KEY_SECRET missing` | Add it to Render environment variables |
-| `Checkout.js not loaded` | Ensure `<script src="...checkout.js">` is in `web/index.html` |
-| `order_id not found` | Backend must be running and `BACKEND_URL` in Flutter `.env` must be correct |
+| `Missing required environment variables` | Add `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` to Render env vars |
+| `CORS blocked` | Add your Flutter web URL to `ALLOWED_ORIGINS` in Render |
+| 429 Too Many Requests | Rate limit hit — wait the window and retry |
+| `order_id not found` | Check `BACKEND_URL` in Flutter `.env` points to deployed backend |
 | Render shows 502 | Check Render logs → usually a missing env variable |
-
----
-
-## 💡 Going Live (Real Money)
-
-1. Complete KYC on [Razorpay Dashboard](https://dashboard.razorpay.com)
-2. Get Live keys (start with `rzp_live_`)
-3. Update Render env vars: `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET`
-4. Update Flutter `.env`: `RAZORPAY_KEY_ID=rzp_live_xxx`
-5. Change `ALLOWED_ORIGINS` to your real domain
-6. Rebuild and redeploy — **no code changes needed**
+| `Invalid plan` | Plan key sent by Flutter doesn't match `VALID_PLANS` in `validate.js` |

@@ -1,20 +1,21 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // src/routes/paymentRoutes.js
-// Wires middleware → controllers for all payment endpoints.
+// Wires rate limiting → validation → controller for all payment endpoints.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const express = require('express');
 const router  = express.Router();
 
-const { createOrder, verifyPayment }           = require('../controllers/paymentController');
+const { createOrder, verifyPayment }             = require('../controllers/paymentController');
 const { validateCreateOrder, validateVerifyPayment } = require('../middleware/validate');
+const { paymentLimiter, verifyLimiter }          = require('../middleware/rateLimit');
 
 // POST /api/payment/create-order
-// Validate body first, then create the Razorpay order
-router.post('/create-order', validateCreateOrder, createOrder);
+// Rate limited → validated → order created
+router.post('/create-order', paymentLimiter, validateCreateOrder, createOrder);
 
 // POST /api/payment/verify-payment
-// Validate body first, then verify HMAC signature
-router.post('/verify-payment', validateVerifyPayment, verifyPayment);
+// Stricter rate limit → validated → HMAC verified
+router.post('/verify-payment', verifyLimiter, validateVerifyPayment, verifyPayment);
 
 module.exports = router;
