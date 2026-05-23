@@ -101,7 +101,7 @@ git init
 git add .
 git commit -m "Initial backend"
 # Create repo at github.com, then:
-git remote add origin https://github.com/YOUR/resume-ai-backend.git
+git remote add origin https://github.com/Vishesh-spiron/resume-ai-backend.git
 git push -u origin main
 ```
 

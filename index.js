@@ -9,7 +9,9 @@ const express = require('express');
 const cors    = require('cors');
 
 const paymentRoutes            = require('./src/routes/paymentRoutes');
+const humanReviewRoutes        = require('./src/routes/humanReviewRoutes');
 const { requestLogger }        = require('./src/middleware/logger');
+const { verifyEmailer }        = require('./src/config/emailer');
 const { generalLimiter }       = require('./src/middleware/rateLimit');
 
 const app  = express();
@@ -17,7 +19,7 @@ const PORT = process.env.PORT || 3000;
 
 // ── Startup validation ────────────────────────────────────────────────────────
 // Fail loudly at boot rather than silently at first request.
-const REQUIRED_ENV = ['RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET'];
+const REQUIRED_ENV = ['RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET', 'SMTP_USER', 'SMTP_PASS', 'ADMIN_EMAIL'];
 const missing = REQUIRED_ENV.filter((k) => !process.env[k]);
 if (missing.length > 0) {
   console.error(`❌ Missing required environment variables: ${missing.join(', ')}`);
@@ -79,6 +81,10 @@ app.get('/', (req, res) => {
 // All payment routes under /api/payment
 app.use('/api/payment', paymentRoutes);
 
+// Human review — multipart PDF upload + email with attachment
+// Note: express.json() is NOT applied to this route (multer handles the body)
+app.use('/api/human-review', humanReviewRoutes);
+
 // ── 404 handler ───────────────────────────────────────────────────────────────
 app.use((req, res) => {
   res.status(404).json({ error: `Route not found: ${req.method} ${req.path}` });
@@ -99,6 +105,9 @@ app.use((err, req, res, next) => {
 
 // ── Start server ──────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
+  // Verify SMTP connection — non-fatal if it fails
+  verifyEmailer();
+
   console.log(`\n✅ Resume AI backend running`);
   console.log(`   Port:    ${PORT}`);
   console.log(`   Mode:    ${process.env.NODE_ENV || 'development'}`);
