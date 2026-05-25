@@ -10,6 +10,7 @@ const cors    = require('cors');
 
 const paymentRoutes            = require('./src/routes/paymentRoutes');
 const humanReviewRoutes        = require('./src/routes/humanReviewRoutes');
+const aiRoutes                 = require('./src/routes/aiRoutes');
 const { requestLogger }        = require('./src/middleware/logger');
 const { verifyEmailer }        = require('./src/config/emailer');
 const { generalLimiter }       = require('./src/middleware/rateLimit');
@@ -19,7 +20,7 @@ const PORT = process.env.PORT || 3000;
 
 // ── Startup validation ────────────────────────────────────────────────────────
 // Fail loudly at boot rather than silently at first request.
-const REQUIRED_ENV = ['RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET', 'RESEND_API_KEY', 'ADMIN_EMAIL'];
+const REQUIRED_ENV = ['RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET', 'RESEND_API_KEY', 'ADMIN_EMAIL', 'GROQ_API_KEY'];
 const missing = REQUIRED_ENV.filter((k) => !process.env[k]);
 if (missing.length > 0) {
   console.error(`❌ Missing required environment variables: ${missing.join(', ')}`);
@@ -80,6 +81,10 @@ app.get('/', (req, res) => {
 
 // All payment routes under /api/payment
 app.use('/api/payment', paymentRoutes);
+
+// AI proxy — Flutter calls this instead of Groq directly
+// GROQ_API_KEY stays on the server, never sent to the browser
+app.use('/api/ai', aiRoutes);
 
 // Human review — multipart PDF upload + email with attachment
 // Note: express.json() is NOT applied to this route (multer handles the body)
