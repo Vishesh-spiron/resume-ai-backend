@@ -35,6 +35,9 @@ if (process.env.NODE_ENV === 'production' && process.env.ALLOWED_ORIGINS === '*'
   );
 }
 
+// Trust Render/Railway proxy — fixes express-rate-limit X-Forwarded-For error
+app.set('trust proxy', 1);
+
 // ── Middleware (order matters) ────────────────────────────────────────────────
 
 // 1. Attach request ID + log every request
