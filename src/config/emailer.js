@@ -1,49 +1,44 @@
 // src/config/emailer.js
 // ─────────────────────────────────────────────────────────────────────────────
-// Nodemailer transporter — used ONLY for Human Review emails with PDF attachment.
-// Payment confirmation emails still go through EmailJS in Flutter.
+// Resend client — replaces Nodemailer + Gmail SMTP.
 //
-// Configured from .env:
-//   SMTP_HOST  → smtp.gmail.com (Gmail) or your mail server
-//   SMTP_PORT  → 587 (STARTTLS, recommended) or 465 (SSL)
-//   SMTP_USER  → your email address
-//   SMTP_PASS  → Gmail app password or SMTP password
-//   SMTP_FROM  → From address shown to recipient (can match SMTP_USER)
+// WHY RESEND INSTEAD OF NODEMAILER + GMAIL:
+//   Render free tier blocks outbound SMTP connections (ports 25, 465, 587).
+//   Resend uses HTTPS API — never blocked by any hosting platform.
+//   Free tier: 100 emails/day, 3,000/month. No credit card needed.
 //
-// Gmail setup (free, 500 emails/day):
-//   1. Enable 2-Step Verification on your Google account
-//   2. Go to https://myaccount.google.com/apppasswords
-//   3. Generate → "Mail" → copy the 16-char password → paste as SMTP_PASS
-//   Do NOT use your real Gmail password — it won't work with SMTP.
+// SETUP (2 minutes):
+//   1. Go to https://resend.com → Sign up free
+//   2. API Keys → Create API Key → copy it
+//   3. Add to Render env vars: RESEND_API_KEY=re_xxxxxxxxxx
+//
+// SENDER ADDRESS:
+//   Free tier: you MUST use "onboarding@resend.dev" as the from address
+//   OR verify your own domain (free) at resend.com/domains.
+//   Recommended: verify your domain so emails come from your own address.
+//   Until then, set RESEND_FROM=onboarding@resend.dev in your .env
 // ─────────────────────────────────────────────────────────────────────────────
 
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
-const transporter = nodemailer.createTransport({
-  host:   process.env.SMTP_HOST || 'smtp.gmail.com',
-  port:   Number(process.env.SMTP_PORT) || 587,
-  secure: Number(process.env.SMTP_PORT) === 465, // true for 465, false for 587
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-  // Increase timeout for attachments — PDFs can take a moment
-  connectionTimeout: 10_000,
-  greetingTimeout:   10_000,
-});
+let _client = null;
 
-// ── Verify connection at startup ─────────────────────────────────────────────
-// Called from index.js after all env vars are confirmed present.
-async function verifyEmailer() {
-  try {
-    await transporter.verify();
-    console.log('✅ SMTP connection verified —', process.env.SMTP_HOST);
-  } catch (err) {
-    // Non-fatal at startup — log clearly but don't crash the payment server
-    console.warn('⚠️  SMTP verification failed:', err.message);
-    console.warn('   Human Review emails will fail until SMTP is fixed.');
-    console.warn('   Check SMTP_HOST / SMTP_USER / SMTP_PASS in .env');
+function getResendClient() {
+  if (!_client) {
+    _client = new Resend(process.env.RESEND_API_KEY);
   }
+  return _client;
 }
 
-module.exports = { transporter, verifyEmailer };
+// Called at startup — non-fatal if key is missing
+async function verifyEmailer() {
+  if (!process.env.RESEND_API_KEY) {
+    console.warn('⚠️  RESEND_API_KEY not set — Human Review emails will fail.');
+    console.warn('   Get a free key at https://resend.com');
+    return;
+  }
+  // Resend has no "verify" call — just confirm key is set
+  console.log('✅ Resend configured —', process.env.RESEND_FROM || 'onboarding@resend.dev');
+}
+
+module.exports = { getResendClient, verifyEmailer };

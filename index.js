@@ -19,7 +19,7 @@ const PORT = process.env.PORT || 3000;
 
 // ── Startup validation ────────────────────────────────────────────────────────
 // Fail loudly at boot rather than silently at first request.
-const REQUIRED_ENV = ['RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET', 'SMTP_USER', 'SMTP_PASS', 'ADMIN_EMAIL'];
+const REQUIRED_ENV = ['RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET', 'RESEND_API_KEY', 'ADMIN_EMAIL'];
 const missing = REQUIRED_ENV.filter((k) => !process.env[k]);
 if (missing.length > 0) {
   console.error(`❌ Missing required environment variables: ${missing.join(', ')}`);
