@@ -43,9 +43,9 @@ async function submitHumanReview(req, res) {
     timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short',
   });
 
-  const preview = resumeText.length > 2500
-    ? resumeText.substring(0, 2500) + '\n\n[...truncated. Full resume attached as PDF.]'
-    : resumeText;
+  // Send full resume text — no truncation.
+  // PDF attachment is the primary document; text is a readable backup.
+  const preview = resumeText || '(No resume text provided)';
 
   const html = `
   <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;color:#1a1a2e">
@@ -75,10 +75,10 @@ async function submitHumanReview(req, res) {
 
       ${attachments.length > 0
         ? `<div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:12px 16px;margin-bottom:20px">
-             <p style="margin:0;font-size:14px;color:#2e7d32">📎 <strong>Resume PDF attached</strong></p>
+             <p style="margin:0;font-size:14px;color:#2e7d32">📎 <strong>Resume PDF attached above</strong> — check email attachments</p>
            </div>`
         : `<div style="background:#fff3e0;border:1px solid #ffb74d;border-radius:8px;padding:12px 16px;margin-bottom:20px">
-             <p style="margin:0;font-size:14px;color:#e65100">⚠️ No PDF — resume text below</p>
+             <p style="margin:0;font-size:14px;color:#e65100">⚠️ PDF not received — full resume text is below</p>
            </div>`}
 
       ${preview ? `
