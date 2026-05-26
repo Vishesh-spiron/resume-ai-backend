@@ -51,7 +51,7 @@ async function submitHumanReview(req, res) {
   <div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;color:#1a1a2e">
     <div style="background:linear-gradient(135deg,#2D5BE3,#7C3AED);padding:24px;border-radius:12px 12px 0 0">
       <h1 style="color:#fff;margin:0;font-size:20px">📄 New Human Review Request</h1>
-      <p style="color:rgba(255,255,255,.8);margin:6px 0 0;font-size:13px">Submitted via Next Hire App</p>
+      <p style="color:rgba(255,255,255,.8);margin:6px 0 0;font-size:13px">Submitted via Perfect Resume Art App</p>
     </div>
     <div style="background:#f8f9ff;padding:24px;border:1px solid #e0e4ff;border-top:none">
       <table style="width:100%;border-collapse:collapse;font-size:14px;margin-bottom:20px">
@@ -95,7 +95,7 @@ async function submitHumanReview(req, res) {
       </div>
     </div>
     <div style="background:#f0f0f0;padding:12px;border-radius:0 0 12px 12px;text-align:center">
-      <p style="margin:0;font-size:11px;color:#888">Next Hire — AI Resume Analyzer</p>
+      <p style="margin:0;font-size:11px;color:#888">Perfect Resume Art</p>
     </div>
   </div>`;
 
