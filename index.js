@@ -1,9 +1,4 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// index.js — Entry point for Resume AI backend
-// Handles Razorpay order creation and payment verification
-// ─────────────────────────────────────────────────────────────────────────────
-
-require('dotenv').config(); // Must be first — loads .env before anything reads process.env
+require('dotenv').config();
 
 const express = require('express');
 const cors    = require('cors');
@@ -12,45 +7,38 @@ const paymentRoutes            = require('./src/routes/paymentRoutes');
 const humanReviewRoutes        = require('./src/routes/humanReviewRoutes');
 const aiRoutes                 = require('./src/routes/aiRoutes');
 const { requestLogger }        = require('./src/middleware/logger');
-const { verifyEmailer }        = require('./src/config/emailer');
 const { generalLimiter }       = require('./src/middleware/rateLimit');
+const { verifyEmailer }        = require('./src/config/emailer');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
 
 // ── Startup validation ────────────────────────────────────────────────────────
-// Fail loudly at boot rather than silently at first request.
 const REQUIRED_ENV = ['RAZORPAY_KEY_ID', 'RAZORPAY_KEY_SECRET', 'RESEND_API_KEY', 'ADMIN_EMAIL', 'GROQ_API_KEY'];
 const missing = REQUIRED_ENV.filter((k) => !process.env[k]);
 if (missing.length > 0) {
   console.error(`❌ Missing required environment variables: ${missing.join(', ')}`);
-  console.error('   Set them in .env (local) or your hosting platform (Render/Railway).');
   process.exit(1);
 }
 
-// Warn if ALLOWED_ORIGINS is still wildcard in production
 if (process.env.NODE_ENV === 'production' && process.env.ALLOWED_ORIGINS === '*') {
-  console.warn(
-    '⚠️  ALLOWED_ORIGINS=* in production — consider restricting to your Flutter web domain.',
-  );
+  console.warn('⚠️  ALLOWED_ORIGINS=* in production — consider restricting to your Flutter web domain.');
 }
 
 // Trust Render/Railway proxy — fixes express-rate-limit X-Forwarded-For error
 app.set('trust proxy', 1);
 
-// ── Middleware (order matters) ────────────────────────────────────────────────
+// ── Middleware (order is critical) ────────────────────────────────────────────
 
-// 1. Attach request ID + log every request
+// 1. Request ID + logging
 app.use(requestLogger);
 
-// 2. General rate limit — 60 req/min per IP across all routes
-app.use(generalLimiter);
-
-// 3. Parse JSON bodies
-app.use(express.json({ limit: '10kb' })); // Limit body size — payment payloads are tiny
-
-// 4. CORS — allow Flutter web + mobile
-const rawOrigins = process.env.ALLOWED_ORIGINS ?? '*';
+// 2. CORS — MUST be first middleware before body parser and rate limiter.
+//    Reason: if body parser rejects with 413 (payload too large) before CORS runs,
+//    the error response has no Access-Control-Allow-Origin header.
+//    The browser then treats it as a CORS violation → XMLHttpRequest error in Flutter web.
+//    Putting CORS first ensures ALL responses (including errors) carry CORS headers.
+const rawOrigins    = process.env.ALLOWED_ORIGINS ?? '*';
 const allowedOrigins = rawOrigins.split(',').map((o) => o.trim());
 
 app.use(
@@ -58,20 +46,25 @@ app.use(
     origin: allowedOrigins.includes('*')
       ? '*'
       : (origin, callback) => {
-          // Allow requests with no Origin header (native mobile apps, Postman)
           if (!origin) return callback(null, true);
           if (allowedOrigins.includes(origin)) return callback(null, true);
           callback(new Error(`CORS blocked: origin "${origin}" not in ALLOWED_ORIGINS`));
         },
-    methods:       ['GET', 'POST'],
+    methods:        ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: ['Content-Type'],
   }),
 );
 
+// 3. Rate limiting
+app.use(generalLimiter);
+
+// 4. JSON body parser — 5mb allows large AI prompts that include full resume text.
+//    AI prompts with resume (~5kb) + instructions (~3kb) = 8-15kb easily.
+//    Payment endpoints only send a plan key (~30 bytes), so 5mb doesn't loosen security there.
+app.use(express.json({ limit: '5mb' }));
+
 // ── Routes ────────────────────────────────────────────────────────────────────
 
-// Health check — Render uses GET / to confirm the service is alive.
-// Returns uptime and environment so you can verify deployments at a glance.
 app.get('/', (req, res) => {
   res.json({
     status:      'ok',
@@ -82,15 +75,14 @@ app.get('/', (req, res) => {
   });
 });
 
-// All payment routes under /api/payment
+// Payment routes
 app.use('/api/payment', paymentRoutes);
 
-// AI proxy — Flutter calls this instead of Groq directly
-// GROQ_API_KEY stays on the server, never sent to the browser
+// AI proxy — Flutter calls this; backend calls Groq with server-side key
 app.use('/api/ai', aiRoutes);
 
-// Human review — multipart PDF upload + email with attachment
-// Note: express.json() is NOT applied to this route (multer handles the body)
+// Human review — multipart PDF upload + email
+// Note: express.json() is NOT applied inside multer routes (multer handles parsing)
 app.use('/api/human-review', humanReviewRoutes);
 
 // ── 404 handler ───────────────────────────────────────────────────────────────
@@ -99,13 +91,10 @@ app.use((req, res) => {
 });
 
 // ── Global error handler ──────────────────────────────────────────────────────
-// Catches anything thrown or passed to next(err) from middleware or routes.
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
   const status = err.status || 500;
   console.error(`[${req.requestId}] 💥 Unhandled error (${status}): ${err.message}`);
-
-  // Never leak stack traces to clients
   res.status(status).json({
     error: status === 500 ? 'Internal server error' : err.message,
   });
@@ -113,9 +102,7 @@ app.use((err, req, res, next) => {
 
 // ── Start server ──────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
-  // Verify SMTP connection — non-fatal if it fails
   verifyEmailer();
-
   console.log(`\n✅ Resume AI backend running`);
   console.log(`   Port:    ${PORT}`);
   console.log(`   Mode:    ${process.env.NODE_ENV || 'development'}`);
@@ -123,10 +110,7 @@ app.listen(PORT, () => {
   console.log(`   Razorpay key: ${process.env.RAZORPAY_KEY_ID?.slice(0, 12)}...\n`);
 });
 
-// ── Keep-alive ping ───────────────────────────────────────────────────────────
-// Render free tier spins down after 15 min of inactivity.
-// Pings our own health endpoint every 14 min to stay warm.
-// Node 18+ has native fetch — no extra dependency needed.
+// ── Keep-alive ping (Render free tier) ───────────────────────────────────────
 if (process.env.NODE_ENV === 'production') {
   const SELF = process.env.RENDER_EXTERNAL_URL || `http://localhost:${PORT}`;
   setInterval(async () => {
