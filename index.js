@@ -53,10 +53,15 @@ app.use(
           if (allowedOrigins.includes(origin)) return callback(null, true);
           callback(new Error(`CORS blocked: origin "${origin}" not in ALLOWED_ORIGINS`));
         },
-    methods:        ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+    ],
   }),
 );
+
+app.options('*', cors());
 
 // 3. Rate limiting
 app.use(generalLimiter);
