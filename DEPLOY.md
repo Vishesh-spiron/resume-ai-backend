@@ -215,3 +215,14 @@ Flutter → POST /create-order → backend creates Razorpay order
 | `order_id not found` | Check `BACKEND_URL` in Flutter `.env` points to deployed backend |
 | Render shows 502 | Check Render logs → usually a missing env variable |
 | `Invalid plan` | Plan key sent by Flutter doesn't match `VALID_PLANS` in `validate.js` |
+
+
+
+PS C:\Users\Vishesh\OneDrive\Desktop\next_hire> flutter build web --release `                         
+>>   --dart-define=BACKEND_URL=https://resume-ai-backend-bwzx.onrender.com `
+>>   --dart-define=RAZORPAY_KEY_ID=rzp_live_Sv1VQwzm8tiXIE `
+>>   --dart-define=ADMIN_EMAIL=vasubansal741@gmail.com `
+>>   --dart-define=ADMIN_NAME=Vishesh `
+>>   --dart-define=EMAILJS_PUBLIC_KEY=XIrD12k_jC6UwluHN `
+>>   --dart-define=EMAILJS_SERVICE_ID=service_g5jqs7o `
+>>   --dart-define=EMAILJS_TEMPLATE_ID=template_rij6i2s

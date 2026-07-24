@@ -50,4 +50,17 @@ const verifyLimiter = rateLimit({
   },
 });
 
-module.exports = { generalLimiter, paymentLimiter, verifyLimiter };
+// ── Referral endpoint limiter — 30 requests per 15 minutes per IP ─────────────
+// Generous enough for legitimate typing/validation, but limits code-guessing
+// against /validate-code (the one public, unauthenticated referral route).
+const referralLimiter = rateLimit({
+  windowMs:         15 * 60 * 1000, // 15 minutes
+  max:              30,
+  standardHeaders:  true,
+  legacyHeaders:    false,
+  message: {
+    error: 'Too many requests. Please wait a moment and try again.',
+  },
+});
+
+module.exports = { generalLimiter, paymentLimiter, verifyLimiter, referralLimiter };

@@ -5,16 +5,17 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev":   "nodemon index.js"
+    "dev": "nodemon index.js"
   },
   "dependencies": {
-    "cors":               "^2.8.5",
-    "dotenv":             "^16.4.5",
-    "express":            "^4.19.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
     "express-rate-limit": "^7.4.1",
-    "multer":             "^1.4.5-lts.1",
-    "resend":             "^3.2.0",
-    "razorpay":           "^2.9.2"
+    "firebase-admin": "^12.7.0",
+    "multer": "^1.4.5-lts.1",
+    "razorpay": "^2.9.2",
+    "resend": "^3.2.0"
   },
   "devDependencies": {
     "nodemon": "^3.1.4"

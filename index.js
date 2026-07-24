@@ -6,9 +6,12 @@ const cors    = require('cors');
 const paymentRoutes            = require('./src/routes/paymentRoutes');
 const humanReviewRoutes        = require('./src/routes/humanReviewRoutes');
 const aiRoutes                 = require('./src/routes/aiRoutes');
+const referralRoutes           = require('./src/routes/referralRoutes');
+const adminReferralRoutes      = require('./src/routes/adminReferralRoutes');
 const { requestLogger }        = require('./src/middleware/logger');
 const { generalLimiter }       = require('./src/middleware/rateLimit');
 const { verifyEmailer }        = require('./src/config/emailer');
+const { isFirebaseReady }      = require('./src/config/firebaseAdmin');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -61,7 +64,14 @@ app.use(generalLimiter);
 // 4. JSON body parser — 5mb allows large AI prompts that include full resume text.
 //    AI prompts with resume (~5kb) + instructions (~3kb) = 8-15kb easily.
 //    Payment endpoints only send a plan key (~30 bytes), so 5mb doesn't loosen security there.
-app.use(express.json({ limit: '5mb' }));
+// Capture the raw body bytes alongside normal JSON parsing — the Razorpay
+// webhook needs the RAW bytes (not the re-serialized object) to verify its
+// HMAC signature. Every other route is completely unaffected; req.body
+// still works exactly as before everywhere.
+app.use(express.json({
+  limit: '5mb',
+  verify: (req, res, buf) => { req.rawBody = buf; },
+}));
 
 // ── Routes ────────────────────────────────────────────────────────────────────
 
@@ -72,6 +82,7 @@ app.get('/', (req, res) => {
     environment: process.env.NODE_ENV || 'development',
     uptime_sec:  Math.floor(process.uptime()),
     version:     process.env.npm_package_version || '1.0.0',
+    referral_system_ready: isFirebaseReady(),
   });
 });
 
@@ -80,6 +91,15 @@ app.use('/api/payment', paymentRoutes);
 
 // AI proxy — Flutter calls this; backend calls Groq with server-side key
 app.use('/api/ai', aiRoutes);
+
+// Referral program — code validation + account linking (Phase 1).
+// Gracefully returns 503 until FIREBASE_SERVICE_ACCOUNT is configured;
+// never blocks server startup or the routes above.
+app.use('/api/referral', referralRoutes);
+
+// Referral program admin — campaign config, analytics, withdrawal review
+// (Phase 5). Every route here also requires role === 'admin'.
+app.use('/api/admin/referral', adminReferralRoutes);
 
 // Human review — multipart PDF upload + email
 // Note: express.json() is NOT applied inside multer routes (multer handles parsing)
@@ -107,7 +127,8 @@ app.listen(PORT, () => {
   console.log(`   Port:    ${PORT}`);
   console.log(`   Mode:    ${process.env.NODE_ENV || 'development'}`);
   console.log(`   Origins: ${rawOrigins}`);
-  console.log(`   Razorpay key: ${process.env.RAZORPAY_KEY_ID?.slice(0, 12)}...\n`);
+  console.log(`   Razorpay key: ${process.env.RAZORPAY_KEY_ID?.slice(0, 12)}...`);
+  console.log(`   Referral system: ${isFirebaseReady() ? '✅ ready' : '⚠️  disabled (see FIREBASE_SERVICE_ACCOUNT above)'}\n`);
 });
 
 // ── Keep-alive ping (Render free tier) ───────────────────────────────────────
