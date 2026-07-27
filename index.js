@@ -8,6 +8,7 @@ const humanReviewRoutes        = require('./src/routes/humanReviewRoutes');
 const aiRoutes                 = require('./src/routes/aiRoutes');
 const referralRoutes           = require('./src/routes/referralRoutes');
 const adminReferralRoutes      = require('./src/routes/adminReferralRoutes');
+const premiumRoutes            = require('./src/routes/premiumRoutes');
 const { requestLogger }        = require('./src/middleware/logger');
 const { generalLimiter }       = require('./src/middleware/rateLimit');
 const { verifyEmailer }        = require('./src/config/emailer');
@@ -96,6 +97,12 @@ app.use('/api/payment', paymentRoutes);
 
 // AI proxy — Flutter calls this; backend calls Groq with server-side key
 app.use('/api/ai', aiRoutes);
+
+// Premium status + rewarded-ad unlock (hybrid monetization). Requires
+// FIREBASE_SERVICE_ACCOUNT, same as the referral system below — the
+// requireAuth middleware it uses returns a clean 401 rather than crashing
+// if Firebase Admin isn't configured yet.
+app.use('/api/premium', premiumRoutes);
 
 // Referral program — code validation + account linking (Phase 1).
 // Gracefully returns 503 until FIREBASE_SERVICE_ACCOUNT is configured;
