@@ -20,6 +20,7 @@ const PLAN_NAMES = {
   bundle:          'Full Upgrade Bundle',
   humanReview:     'Expert Human Review',
   resumeGenerator: 'AI Resume Builder',   // ← was missing before
+  interviewPrep:   'Interview Prep Report',
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

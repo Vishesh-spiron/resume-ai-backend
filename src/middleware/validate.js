@@ -10,6 +10,7 @@ const VALID_PLANS = [
   'bundle',
   'humanReview',
   'resumeGenerator',
+  'interviewPrep',
 ];
 
 // ── Single source of truth for pricing (paise) ────────────────────────────────
@@ -22,6 +23,7 @@ const PLAN_AMOUNTS = {
   bundle:          7900,   // ₹79 — save ₹187 vs buying separately
   humanReview:    12900,   // ₹129
   resumeGenerator: 4900,   // ₹49
+  interviewPrep:   3900,   // ₹39 — unlocks the full 20-question interview prep report + PDF
 };
 
 // ── Input sanitization ────────────────────────────────────────────────────────
