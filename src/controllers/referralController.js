@@ -241,6 +241,11 @@ async function getWallet(req, res) {
       lifetimeEarnings: data.lifetimeEarnings || 0,
       minWithdrawal: config.minWithdrawal,
       hasPendingWithdrawal: !pendingWithdrawalSnap.empty,
+      // Live campaign rates — pulled from config, not hardcoded, so the
+      // dashboard/share text never drifts out of sync if these are
+      // changed later from the admin panel.
+      commissionPercent: config.commissionPercent,
+      discountPercent: config.discountPercent,
       stats: {
         referralClicks,
         totalSignups: totalReferrals,
