@@ -16,15 +16,15 @@ const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 
 // Allowed models — whitelist prevents client from using arbitrary models
 const ALLOWED_MODELS = new Set([
-  'llama-3.3-70b-versatile',
-  'llama-3.1-8b-instant',
+  'openai/gpt-oss-120b',
+  'openai/gpt-oss-120b',
 ]);
 
 async function chatCompletion(req, res) {
   const { requestId } = req;
   const {
     prompt,
-    model      = 'llama-3.3-70b-versatile',
+    model      = 'openai/gpt-oss-120b',
     maxTokens  = 1024,
   } = req.body ?? {};
 
