@@ -1,7 +1,7 @@
 // src/routes/aiRoutes.js
 const express    = require('express');
 const rateLimit  = require('express-rate-limit');
-const { chatCompletion } = require('../controllers/aiController');
+const { chatCompletion, waterfallStatus } = require('../controllers/aiController');
 const { optionalAuth } = require('../middleware/firebaseAuth');
 const { requirePremiumAccess } = require('../middleware/requirePremiumAccess');
 
@@ -31,6 +31,15 @@ const aiLimiter = rateLimit({
 // optionalAuth populates req.uid when a valid Firebase ID token is
 // present (silently continues without one otherwise); requirePremiumAccess
 // then decides, based on `feature` + req.uid, whether to block the request.
+//
+// Internally this now tries up to 3 Groq API keys in a waterfall (see
+// config/aiWaterfall.js) — entirely invisible to the client.
 router.post('/chat', aiLimiter, optionalAuth, requirePremiumAccess, chatCompletion);
+
+// GET /api/ai/waterfall-status — which Groq keys are configured and whether
+// any are currently cooling down from a rate limit. No key values or prompt
+// content are ever exposed. Useful for a quick "is key 2 actually being
+// used" sanity check after adding GROQ_API_KEY_2/_3.
+router.get('/waterfall-status', waterfallStatus);
 
 module.exports = router;
