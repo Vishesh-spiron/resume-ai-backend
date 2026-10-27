@@ -9,6 +9,7 @@ const aiRoutes                 = require('./src/routes/aiRoutes');
 const referralRoutes           = require('./src/routes/referralRoutes');
 const adminReferralRoutes      = require('./src/routes/adminReferralRoutes');
 const premiumRoutes            = require('./src/routes/premiumRoutes');
+const billingRoutes            = require('./src/routes/billingRoutes');
 const { requestLogger }        = require('./src/middleware/logger');
 const { generalLimiter }       = require('./src/middleware/rateLimit');
 const { verifyEmailer }        = require('./src/config/emailer');
@@ -94,6 +95,9 @@ app.get('/', (req, res) => {
 
 // Payment routes
 app.use('/api/payment', paymentRoutes);
+
+// Google Play Billing — verify, entitlements, RTDN (Android app)
+app.use('/api/billing', billingRoutes);
 
 // AI proxy — Flutter calls this; backend calls Groq with server-side key
 app.use('/api/ai', aiRoutes);
